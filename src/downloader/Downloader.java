@@ -38,8 +38,9 @@ final class Downloader {
 				String s;
 				while ((s = next()) != null)
 					try {
-						FileOutputStream fos = new FileOutputStream(new File(saveLoc, parsed + ".zip"));
-						System.out.println("Downloading: " + s.substring(s.indexOf('/', 1) + 1, s.lastIndexOf('/')));
+						String name = s.substring(s.indexOf('/', 1) + 1, s.lastIndexOf('/'));
+						FileOutputStream fos = new FileOutputStream(new File(saveLoc, name + ".zip"));
+						System.out.println("Downloading: " + name);
 						fos.getChannel()
 								.transferFrom(
 										Channels.newChannel(new URL("https://mods.factorio.com" + s + "?username="

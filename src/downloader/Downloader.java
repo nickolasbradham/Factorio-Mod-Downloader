@@ -14,7 +14,7 @@ final class Downloader {
 
 	private Downloader() throws MalformedURLException, IOException {
 		raw = new String(
-				new URL("https://mods.factorio.com/api/mods?version=1.1&page_size=2").openStream().readAllBytes());
+				new URL("https://mods.factorio.com/api/mods?version=1.1").openStream().readAllBytes());
 	}
 
 	private synchronized String[] next() {

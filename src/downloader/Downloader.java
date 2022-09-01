@@ -3,18 +3,21 @@ package downloader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.channels.Channels;
 
 final class Downloader {
 
-	private final String raw;
+	private final String raw, user, pass;
 	private int parsed = 0;
 
-	private Downloader() throws MalformedURLException, IOException {
+	private Downloader(String username, String password) throws MalformedURLException, IOException {
 		raw = new String(
 				new URL("https://mods.factorio.com/api/mods?version=1.1&page_size=max").openStream().readAllBytes());
+		user = username;
+		pass = password;
 	}
 
 	private synchronized String[] next() {
@@ -33,6 +36,18 @@ final class Downloader {
 		if (!saveLoc.exists())
 			saveLoc.mkdir();
 
+		HttpURLConnection http = (HttpURLConnection) new URL("https://auth.factorio.com/api-login").openConnection();
+		http.setRequestMethod("POST");
+		http.setDoOutput(true);
+		http.connect();
+		http.getOutputStream().write(("password=" + pass + "&username=" + user).getBytes());
+
+		if (http.getResponseCode() != 200) {
+			System.out.println("Error trying to login. Check your username and password.");
+			return;
+		}
+
+		String tok = new String(http.getInputStream().readAllBytes()).replaceAll("\\[|\\\"|\\]", "");
 		Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors()];
 		for (byte i = 0; i < threads.length; i++) {
 			threads[i] = new Thread(() -> {
@@ -41,11 +56,10 @@ final class Downloader {
 					try {
 						FileOutputStream fos = new FileOutputStream(new File(saveLoc, s[1]));
 						System.out.println("Downloading: " + s[1]);
-						fos.getChannel()
-								.transferFrom(
-										Channels.newChannel(new URL("https://mods.factorio.com" + s[0] + "?username="
-												+ Login.USERNAME + "&token=" + Login.TOKEN).openStream()),
-										0, Long.MAX_VALUE);
+						fos.getChannel().transferFrom(Channels.newChannel(
+								new URL("https://mods.factorio.com" + s[0] + "?username=" + user + "&token=" + tok)
+										.openStream()),
+								0, Long.MAX_VALUE);
 						fos.close();
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -62,6 +76,10 @@ final class Downloader {
 	}
 
 	public static void main(String[] args) throws MalformedURLException, IOException, InterruptedException {
-		new Downloader().start();
+		if (args.length != 2) {
+			System.out.println("Args: <username> <password>\n  username:");
+			return;
+		}
+		new Downloader(args[0], args[1]).start();
 	}
 }

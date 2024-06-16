@@ -5,7 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 
 final class Downloader {
@@ -13,9 +14,9 @@ final class Downloader {
 	private final String raw, user, pass;
 	private int parsed = 0;
 
-	private Downloader(String username, String password) throws MalformedURLException, IOException {
-		raw = new String(
-				new URL("https://mods.factorio.com/api/mods?version=1.1&page_size=max").openStream().readAllBytes());
+	private Downloader(String username, String password) throws MalformedURLException, IOException, URISyntaxException {
+		raw = new String(new URI("https://mods.factorio.com/api/mods?version=1.1&page_size=max").toURL().openStream()
+				.readAllBytes());
 		user = username;
 		pass = password;
 	}
@@ -31,12 +32,13 @@ final class Downloader {
 		return null;
 	}
 
-	private void start() throws IOException, InterruptedException {
+	private void start() throws IOException, InterruptedException, URISyntaxException {
 		File saveLoc = new File("downloads");
 		if (!saveLoc.exists())
 			saveLoc.mkdir();
 
-		HttpURLConnection http = (HttpURLConnection) new URL("https://auth.factorio.com/api-login").openConnection();
+		HttpURLConnection http = (HttpURLConnection) new URI("https://auth.factorio.com/api-login").toURL()
+				.openConnection();
 		http.setRequestMethod("POST");
 		http.setDoOutput(true);
 		http.connect();
@@ -48,7 +50,7 @@ final class Downloader {
 		}
 
 		String tok = new String(http.getInputStream().readAllBytes()).replaceAll("\\[|\\\"|\\]", "");
-		Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors()];
+		Thread[] threads = new Thread[4];
 		for (byte i = 0; i < threads.length; i++) {
 			threads[i] = new Thread(() -> {
 				String[] s;
@@ -57,11 +59,11 @@ final class Downloader {
 						FileOutputStream fos = new FileOutputStream(new File(saveLoc, s[1]));
 						System.out.println("Downloading: " + s[1]);
 						fos.getChannel().transferFrom(Channels.newChannel(
-								new URL("https://mods.factorio.com" + s[0] + "?username=" + user + "&token=" + tok)
-										.openStream()),
+								new URI("https://mods.factorio.com" + s[0] + "?username=" + user + "&token=" + tok)
+										.toURL().openStream()),
 								0, Long.MAX_VALUE);
 						fos.close();
-					} catch (IOException e) {
+					} catch (IOException | URISyntaxException e) {
 						e.printStackTrace();
 					}
 			});
@@ -75,9 +77,11 @@ final class Downloader {
 		System.out.println("Done.");
 	}
 
-	public static void main(String[] args) throws MalformedURLException, IOException, InterruptedException {
+	public static void main(String[] args)
+			throws MalformedURLException, IOException, InterruptedException, URISyntaxException {
 		if (args.length != 2) {
-			System.out.println("Args: <username> <password>\n  username:");
+			System.out.println(
+					"Args: <username> <password>\n  username: Your Factorio mod portal username.\n  password: Your password.");
 			return;
 		}
 		new Downloader(args[0], args[1]).start();
